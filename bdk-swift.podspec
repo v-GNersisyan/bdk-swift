@@ -1,5 +1,5 @@
 Pod::Spec.new do |spec|
-  spec.name         = 'BitcoinDevKit'
+  spec.name         = 'bdk-swift'
   spec.version      = '1.0.0-beta.2'
   spec.summary      = 'Swift bindings for the Bitcoin Dev Kit (BDK)'
   spec.description  = 'BDK-swift provides Swift bindings for BDK, a lightweight Bitcoin wallet toolkit for building wallets.'
