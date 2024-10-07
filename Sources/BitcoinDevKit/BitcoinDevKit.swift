@@ -886,21 +886,21 @@ public protocol ConnectionProtocol : AnyObject {
 }
 
 open class Connection:
-    ConnectionProtocol {
+    ConnectionProtocol, Codable, Equatable, Hashable {
     fileprivate let pointer: UnsafeMutableRawPointer!
-
+    
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
     public struct NoPointer {
         public init() {}
     }
-
+    
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
     required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
-
+    
     /// This constructor can be used to instantiate a fake object.
     /// - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
     ///
@@ -909,39 +909,69 @@ open class Connection:
     public init(noPointer: NoPointer) {
         self.pointer = nil
     }
-
+    
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_bdkffi_fn_clone_connection(self.pointer, $0) }
     }
-public convenience init(path: String)throws  {
-    let pointer =
+    public convenience init(path: String)throws  {
+        let pointer =
         try rustCallWithError(FfiConverterTypeSqliteError.lift) {
-    uniffi_bdkffi_fn_constructor_connection_new(
-        FfiConverterString.lower(path),$0
-    )
-}
-    self.init(unsafeFromRawPointer: pointer)
-}
-
+            uniffi_bdkffi_fn_constructor_connection_new(
+                FfiConverterString.lower(path),$0
+            )
+        }
+        self.init(unsafeFromRawPointer: pointer)
+    }
+    
     deinit {
         guard let pointer = pointer else {
             return
         }
-
+        
         try! rustCall { uniffi_bdkffi_fn_free_connection(pointer, $0) }
     }
-
     
-public static func newInMemory()throws  -> Connection {
-    return try  FfiConverterTypeConnection.lift(try rustCallWithError(FfiConverterTypeSqliteError.lift) {
-    uniffi_bdkffi_fn_constructor_connection_new_in_memory($0
-    )
-})
-}
     
-
+    public static func newInMemory()throws  -> Connection {
+        return try  FfiConverterTypeConnection.lift(try rustCallWithError(FfiConverterTypeSqliteError.lift) {
+            uniffi_bdkffi_fn_constructor_connection_new_in_memory($0
+            )
+        })
+    }
     
-
+    enum CodingKeys: String, CodingKey {
+        case pointer // If you want to serialize the pointer
+        // Add any other properties you want to serialize
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        // Here you would encode relevant properties. Since pointer is not directly usable,
+        // you might choose to omit it or serialize any relevant state instead.
+        // For example, you could serialize the path if it were stored in a property.
+    }
+    
+    // Implementing Decodable
+    required public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // Here you would decode relevant properties. Since pointer cannot be restored from encoded state,
+        // you might need to handle this differently depending on your use case.
+        self.pointer = nil // Set it to nil or create a logic to restore it if possible
+    }
+    
+    public static func == (lhs: Connection, rhs: Connection) -> Bool {
+        // Compare the relevant properties of Connection for equality.
+        // If you have a way to compare the connections, do it here.
+        // Since there's no direct property in your class, this is a placeholder:
+        return lhs.pointer == rhs.pointer
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        // Combine relevant properties to create a hash.
+        // Here we're using the pointer, but you might want to include more properties.
+        hasher.combine(pointer)
+    }
+    
 }
 
 public struct FfiConverterTypeConnection: FfiConverter {
@@ -1098,8 +1128,11 @@ public protocol DescriptorProtocol : AnyObject {
 
 open class Descriptor:
     CustomStringConvertible,
-    DescriptorProtocol {
+    DescriptorProtocol, Codable, Equatable, Hashable {
     fileprivate let pointer: UnsafeMutableRawPointer!
+    
+    var descriptorString: String
+    var network: Network
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
     public struct NoPointer {
@@ -1111,6 +1144,8 @@ open class Descriptor:
     // make it `required` without making it `public`.
     required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
+        self.descriptorString = "" // You need to extract this from the pointer or pass it during construction
+        self.network = .bitcoin // Default value, replace with actual value
     }
 
     /// This constructor can be used to instantiate a fake object.
@@ -1120,21 +1155,64 @@ open class Descriptor:
     ///     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
     public init(noPointer: NoPointer) {
         self.pointer = nil
+        self.descriptorString = "" // Placeholder for no-pointer init
+        self.network = .bitcoin // Default value for fake init
     }
 
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_bdkffi_fn_clone_descriptor(self.pointer, $0) }
     }
-public convenience init(descriptor: String, network: Network)throws  {
-    let pointer =
+    public convenience init(descriptor: String, network: Network)throws  {
+        let pointer =
         try rustCallWithError(FfiConverterTypeDescriptorError.lift) {
-    uniffi_bdkffi_fn_constructor_descriptor_new(
-        FfiConverterString.lower(descriptor),
-        FfiConverterTypeNetwork_lower(network),$0
-    )
-}
-    self.init(unsafeFromRawPointer: pointer)
-}
+            uniffi_bdkffi_fn_constructor_descriptor_new(
+                FfiConverterString.lower(descriptor),
+                FfiConverterTypeNetwork_lower(network),$0
+            )
+        }
+        self.init(unsafeFromRawPointer: pointer)
+        self.descriptorString = descriptor
+        self.network = network
+    }
+    
+    // Conformance to Encodable
+    enum CodingKeys: String, CodingKey {
+        case descriptorString
+        case network
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(descriptorString, forKey: .descriptorString)
+        try container.encode(network, forKey: .network)
+    }
+    
+    // Implementing Decodable
+    required public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        descriptorString = try container.decode(String.self, forKey: .descriptorString)
+        network = try container.decode(Network.self, forKey: .network)
+        
+        // Initialize pointer with a valid value based on the decoded properties if needed
+        self.pointer = nil // Adjust based on your initialization logic
+    }
+    
+    public static func == (lhs: Descriptor, rhs: Descriptor) -> Bool {
+        // Replace the following with your logic for determining equality.
+        // Here I'm assuming you may have some way to compare the descriptors
+        // based on the descriptor string or other properties.
+
+        // Example:
+        return lhs.toStringWithSecret() == rhs.toStringWithSecret()
+        // You might want to implement a more meaningful comparison, for example:
+        // return lhs.toStringWithSecret() == rhs.toStringWithSecret()
+    }
+    
+    // MARK: - Hashable Conformance
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(toStringWithSecret())
+    }
 
     deinit {
         guard let pointer = pointer else {
@@ -3457,30 +3535,30 @@ public protocol WalletProtocol : AnyObject {
 open class Wallet:
     WalletProtocol, Codable, Equatable, Hashable {
     fileprivate let pointer: UnsafeMutableRawPointer!
-
-    let descriptor: Descriptor
-    let changeDescriptor: Descriptor
-    let network: Network
-    let connection: Connection
-
+    
+    var descriptor: Descriptor
+    var changeDescriptor: Descriptor
+    var net: Network
+    var connection: Connection
+    
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
     public struct NoPointer {
         public init() {}
     }
-
+    
     // Codable conformance
     enum CodingKeys: String, CodingKey {
         case descriptor
         case changeDescriptor
-        case network
+        case net
         case connection
     }
-
+    
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(descriptor, forKey: .descriptor)
         try container.encode(changeDescriptor, forKey: .changeDescriptor)
-        try container.encode(network, forKey: .network)
+        try container.encode(net, forKey: .net)
         try container.encode(connection, forKey: .connection)
     }
     
@@ -3488,35 +3566,39 @@ open class Wallet:
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.descriptor = try container.decode(Descriptor.self, forKey: .descriptor)
         self.changeDescriptor = try container.decode(Descriptor.self, forKey: .changeDescriptor)
-        self.network = try container.decode(Network.self, forKey: .network)
+        self.net = try container.decode(Network.self, forKey: .net)
         self.connection = try container.decode(Connection.self, forKey: .connection)
         self.pointer = nil // Cannot decode pointer, this must be handled elsewhere
     }
-
-        // Equatable conformance
+    
+    // Equatable conformance
     public static func == (lhs: Wallet, rhs: Wallet) -> Bool {
         return lhs.descriptor == rhs.descriptor &&
-               lhs.changeDescriptor == rhs.changeDescriptor &&
-               lhs.network == rhs.network &&
-               lhs.connection == rhs.connection
+        lhs.changeDescriptor == rhs.changeDescriptor &&
+        lhs.net == rhs.net &&
+        lhs.connection == rhs.connection
         // Ignore `pointer` as it cannot be compared directly
     }
-
+    
     // Hashable conformance
     public func hash(into hasher: inout Hasher) {
         hasher.combine(descriptor)
         hasher.combine(changeDescriptor)
-        hasher.combine(network)
+        hasher.combine(net)
         hasher.combine(connection)
     }
-
+    
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
     required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
+        self.descriptor = try! Descriptor(descriptor: "", network: .bitcoin)
+        self.net = .bitcoin
+        self.connection = .init(noPointer: .init())
+        self.changeDescriptor = try! Descriptor(descriptor: "", network: .bitcoin)
     }
-
+    
     /// This constructor can be used to instantiate a fake object.
     /// - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
     ///
@@ -3524,174 +3606,182 @@ open class Wallet:
     ///     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
     public init(noPointer: NoPointer) {
         self.pointer = nil
+        self.descriptor = try! Descriptor(descriptor: "", network: .bitcoin)
+        self.net = .bitcoin
+        self.connection = .init(noPointer: .init())
+        self.changeDescriptor = try! Descriptor(descriptor: "", network: .bitcoin)
     }
-
+    
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_bdkffi_fn_clone_wallet(self.pointer, $0) }
     }
-public convenience init(descriptor: Descriptor, changeDescriptor: Descriptor, network: Network, connection: Connection)throws  {
-    let pointer =
+    public convenience init(descriptor: Descriptor, changeDescriptor: Descriptor, network: Network, connection: Connection)throws  {
+        let pointer =
         try rustCallWithError(FfiConverterTypeCreateWithPersistError.lift) {
-    uniffi_bdkffi_fn_constructor_wallet_new(
-        FfiConverterTypeDescriptor.lower(descriptor),
-        FfiConverterTypeDescriptor.lower(changeDescriptor),
-        FfiConverterTypeNetwork_lower(network),
-        FfiConverterTypeConnection.lower(connection),$0
-    )
-}
-    self.init(unsafeFromRawPointer: pointer)
-}
-
+            uniffi_bdkffi_fn_constructor_wallet_new(
+                FfiConverterTypeDescriptor.lower(descriptor),
+                FfiConverterTypeDescriptor.lower(changeDescriptor),
+                FfiConverterTypeNetwork_lower(network),
+                FfiConverterTypeConnection.lower(connection),$0
+            )
+        }
+        self.init(unsafeFromRawPointer: pointer)
+        self.descriptor = descriptor
+        self.changeDescriptor = changeDescriptor
+        self.net = network
+        self.connection = connection
+    }
+    
     deinit {
         guard let pointer = pointer else {
             return
         }
-
+        
         try! rustCall { uniffi_bdkffi_fn_free_wallet(pointer, $0) }
     }
-
     
-public static func load(descriptor: Descriptor, changeDescriptor: Descriptor, connection: Connection)throws  -> Wallet {
-    return try  FfiConverterTypeWallet.lift(try rustCallWithError(FfiConverterTypeLoadWithPersistError.lift) {
-    uniffi_bdkffi_fn_constructor_wallet_load(
-        FfiConverterTypeDescriptor.lower(descriptor),
-        FfiConverterTypeDescriptor.lower(changeDescriptor),
-        FfiConverterTypeConnection.lower(connection),$0
-    )
-})
-}
     
-
+    public static func load(descriptor: Descriptor, changeDescriptor: Descriptor, connection: Connection)throws  -> Wallet {
+        return try  FfiConverterTypeWallet.lift(try rustCallWithError(FfiConverterTypeLoadWithPersistError.lift) {
+            uniffi_bdkffi_fn_constructor_wallet_load(
+                FfiConverterTypeDescriptor.lower(descriptor),
+                FfiConverterTypeDescriptor.lower(changeDescriptor),
+                FfiConverterTypeConnection.lower(connection),$0
+            )
+        })
+    }
     
-open func applyUpdate(update: Update)throws  {try rustCallWithError(FfiConverterTypeCannotConnectError.lift) {
-    uniffi_bdkffi_fn_method_wallet_apply_update(self.uniffiClonePointer(),
-        FfiConverterTypeUpdate.lower(update),$0
-    )
-}
-}
     
-open func balance() -> Balance {
-    return try!  FfiConverterTypeBalance.lift(try! rustCall() {
-    uniffi_bdkffi_fn_method_wallet_balance(self.uniffiClonePointer(),$0
-    )
-})
-}
     
-open func calculateFee(tx: Transaction)throws  -> Amount {
-    return try  FfiConverterTypeAmount_lift(try rustCallWithError(FfiConverterTypeCalculateFeeError.lift) {
-    uniffi_bdkffi_fn_method_wallet_calculate_fee(self.uniffiClonePointer(),
-        FfiConverterTypeTransaction.lower(tx),$0
-    )
-})
-}
+    open func applyUpdate(update: Update)throws  {try rustCallWithError(FfiConverterTypeCannotConnectError.lift) {
+        uniffi_bdkffi_fn_method_wallet_apply_update(self.uniffiClonePointer(),
+                                                    FfiConverterTypeUpdate.lower(update),$0
+        )
+    }
+    }
     
-open func calculateFeeRate(tx: Transaction)throws  -> FeeRate {
-    return try  FfiConverterTypeFeeRate_lift(try rustCallWithError(FfiConverterTypeCalculateFeeError.lift) {
-    uniffi_bdkffi_fn_method_wallet_calculate_fee_rate(self.uniffiClonePointer(),
-        FfiConverterTypeTransaction.lower(tx),$0
-    )
-})
-}
+    open func balance() -> Balance {
+        return try!  FfiConverterTypeBalance.lift(try! rustCall() {
+            uniffi_bdkffi_fn_method_wallet_balance(self.uniffiClonePointer(),$0
+            )
+        })
+    }
     
-open func derivationIndex(keychain: KeychainKind) -> UInt32? {
-    return try!  FfiConverterOptionUInt32.lift(try! rustCall() {
-    uniffi_bdkffi_fn_method_wallet_derivation_index(self.uniffiClonePointer(),
-        FfiConverterTypeKeychainKind.lower(keychain),$0
-    )
-})
-}
+    open func calculateFee(tx: Transaction)throws  -> Amount {
+        return try  FfiConverterTypeAmount_lift(try rustCallWithError(FfiConverterTypeCalculateFeeError.lift) {
+            uniffi_bdkffi_fn_method_wallet_calculate_fee(self.uniffiClonePointer(),
+                                                         FfiConverterTypeTransaction.lower(tx),$0
+            )
+        })
+    }
     
-open func getTx(txid: String)throws  -> CanonicalTx? {
-    return try  FfiConverterOptionTypeCanonicalTx.lift(try rustCallWithError(FfiConverterTypeTxidParseError.lift) {
-    uniffi_bdkffi_fn_method_wallet_get_tx(self.uniffiClonePointer(),
-        FfiConverterString.lower(txid),$0
-    )
-})
-}
+    open func calculateFeeRate(tx: Transaction)throws  -> FeeRate {
+        return try  FfiConverterTypeFeeRate_lift(try rustCallWithError(FfiConverterTypeCalculateFeeError.lift) {
+            uniffi_bdkffi_fn_method_wallet_calculate_fee_rate(self.uniffiClonePointer(),
+                                                              FfiConverterTypeTransaction.lower(tx),$0
+            )
+        })
+    }
     
-open func isMine(script: Script) -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_bdkffi_fn_method_wallet_is_mine(self.uniffiClonePointer(),
-        FfiConverterTypeScript_lower(script),$0
-    )
-})
-}
+    open func derivationIndex(keychain: KeychainKind) -> UInt32? {
+        return try!  FfiConverterOptionUInt32.lift(try! rustCall() {
+            uniffi_bdkffi_fn_method_wallet_derivation_index(self.uniffiClonePointer(),
+                                                            FfiConverterTypeKeychainKind.lower(keychain),$0
+            )
+        })
+    }
     
-open func listOutput() -> [LocalOutput] {
-    return try!  FfiConverterSequenceTypeLocalOutput.lift(try! rustCall() {
-    uniffi_bdkffi_fn_method_wallet_list_output(self.uniffiClonePointer(),$0
-    )
-})
-}
+    open func getTx(txid: String)throws  -> CanonicalTx? {
+        return try  FfiConverterOptionTypeCanonicalTx.lift(try rustCallWithError(FfiConverterTypeTxidParseError.lift) {
+            uniffi_bdkffi_fn_method_wallet_get_tx(self.uniffiClonePointer(),
+                                                  FfiConverterString.lower(txid),$0
+            )
+        })
+    }
     
-open func listUnspent() -> [LocalOutput] {
-    return try!  FfiConverterSequenceTypeLocalOutput.lift(try! rustCall() {
-    uniffi_bdkffi_fn_method_wallet_list_unspent(self.uniffiClonePointer(),$0
-    )
-})
-}
+    open func isMine(script: Script) -> Bool {
+        return try!  FfiConverterBool.lift(try! rustCall() {
+            uniffi_bdkffi_fn_method_wallet_is_mine(self.uniffiClonePointer(),
+                                                   FfiConverterTypeScript_lower(script),$0
+            )
+        })
+    }
     
-open func network() -> Network {
-    return try!  FfiConverterTypeNetwork_lift(try! rustCall() {
-    uniffi_bdkffi_fn_method_wallet_network(self.uniffiClonePointer(),$0
-    )
-})
-}
+    open func listOutput() -> [LocalOutput] {
+        return try!  FfiConverterSequenceTypeLocalOutput.lift(try! rustCall() {
+            uniffi_bdkffi_fn_method_wallet_list_output(self.uniffiClonePointer(),$0
+            )
+        })
+    }
     
-open func persist(connection: Connection)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeSqliteError.lift) {
-    uniffi_bdkffi_fn_method_wallet_persist(self.uniffiClonePointer(),
-        FfiConverterTypeConnection.lower(connection),$0
-    )
-})
-}
+    open func listUnspent() -> [LocalOutput] {
+        return try!  FfiConverterSequenceTypeLocalOutput.lift(try! rustCall() {
+            uniffi_bdkffi_fn_method_wallet_list_unspent(self.uniffiClonePointer(),$0
+            )
+        })
+    }
     
-open func revealNextAddress(keychain: KeychainKind) -> AddressInfo {
-    return try!  FfiConverterTypeAddressInfo.lift(try! rustCall() {
-    uniffi_bdkffi_fn_method_wallet_reveal_next_address(self.uniffiClonePointer(),
-        FfiConverterTypeKeychainKind.lower(keychain),$0
-    )
-})
-}
+    open func network() -> Network {
+        return try!  FfiConverterTypeNetwork_lift(try! rustCall() {
+            uniffi_bdkffi_fn_method_wallet_network(self.uniffiClonePointer(),$0
+            )
+        })
+    }
     
-open func sentAndReceived(tx: Transaction) -> SentAndReceivedValues {
-    return try!  FfiConverterTypeSentAndReceivedValues.lift(try! rustCall() {
-    uniffi_bdkffi_fn_method_wallet_sent_and_received(self.uniffiClonePointer(),
-        FfiConverterTypeTransaction.lower(tx),$0
-    )
-})
-}
+    open func persist(connection: Connection)throws  -> Bool {
+        return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeSqliteError.lift) {
+            uniffi_bdkffi_fn_method_wallet_persist(self.uniffiClonePointer(),
+                                                   FfiConverterTypeConnection.lower(connection),$0
+            )
+        })
+    }
     
-open func sign(psbt: Psbt)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeSignerError.lift) {
-    uniffi_bdkffi_fn_method_wallet_sign(self.uniffiClonePointer(),
-        FfiConverterTypePsbt.lower(psbt),$0
-    )
-})
-}
+    open func revealNextAddress(keychain: KeychainKind) -> AddressInfo {
+        return try!  FfiConverterTypeAddressInfo.lift(try! rustCall() {
+            uniffi_bdkffi_fn_method_wallet_reveal_next_address(self.uniffiClonePointer(),
+                                                               FfiConverterTypeKeychainKind.lower(keychain),$0
+            )
+        })
+    }
     
-open func startFullScan() -> FullScanRequestBuilder {
-    return try!  FfiConverterTypeFullScanRequestBuilder.lift(try! rustCall() {
-    uniffi_bdkffi_fn_method_wallet_start_full_scan(self.uniffiClonePointer(),$0
-    )
-})
-}
+    open func sentAndReceived(tx: Transaction) -> SentAndReceivedValues {
+        return try!  FfiConverterTypeSentAndReceivedValues.lift(try! rustCall() {
+            uniffi_bdkffi_fn_method_wallet_sent_and_received(self.uniffiClonePointer(),
+                                                             FfiConverterTypeTransaction.lower(tx),$0
+            )
+        })
+    }
     
-open func startSyncWithRevealedSpks() -> SyncRequestBuilder {
-    return try!  FfiConverterTypeSyncRequestBuilder.lift(try! rustCall() {
-    uniffi_bdkffi_fn_method_wallet_start_sync_with_revealed_spks(self.uniffiClonePointer(),$0
-    )
-})
-}
+    open func sign(psbt: Psbt)throws  -> Bool {
+        return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeSignerError.lift) {
+            uniffi_bdkffi_fn_method_wallet_sign(self.uniffiClonePointer(),
+                                                FfiConverterTypePsbt.lower(psbt),$0
+            )
+        })
+    }
     
-open func transactions() -> [CanonicalTx] {
-    return try!  FfiConverterSequenceTypeCanonicalTx.lift(try! rustCall() {
-    uniffi_bdkffi_fn_method_wallet_transactions(self.uniffiClonePointer(),$0
-    )
-})
-}
+    open func startFullScan() -> FullScanRequestBuilder {
+        return try!  FfiConverterTypeFullScanRequestBuilder.lift(try! rustCall() {
+            uniffi_bdkffi_fn_method_wallet_start_full_scan(self.uniffiClonePointer(),$0
+            )
+        })
+    }
     
-
+    open func startSyncWithRevealedSpks() -> SyncRequestBuilder {
+        return try!  FfiConverterTypeSyncRequestBuilder.lift(try! rustCall() {
+            uniffi_bdkffi_fn_method_wallet_start_sync_with_revealed_spks(self.uniffiClonePointer(),$0
+            )
+        })
+    }
+    
+    open func transactions() -> [CanonicalTx] {
+        return try!  FfiConverterSequenceTypeCanonicalTx.lift(try! rustCall() {
+            uniffi_bdkffi_fn_method_wallet_transactions(self.uniffiClonePointer(),$0
+            )
+        })
+    }
+    
+    
 }
 
 public struct FfiConverterTypeWallet: FfiConverter {
