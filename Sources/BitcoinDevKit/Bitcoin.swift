@@ -953,7 +953,7 @@ extension FeeRateError: Foundation.LocalizedError {
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum Network {
+public enum Network: Codable {
     
     case bitcoin
     case testnet

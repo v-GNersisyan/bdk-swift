@@ -1132,7 +1132,7 @@ open class Descriptor:
     fileprivate let pointer: UnsafeMutableRawPointer!
     
     var descriptorString: String
-    var network: Network
+    var net: Network
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
     public struct NoPointer {
@@ -1145,7 +1145,7 @@ open class Descriptor:
     required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
         self.descriptorString = "" // You need to extract this from the pointer or pass it during construction
-        self.network = .bitcoin // Default value, replace with actual value
+        self.net = .bitcoin // Default value, replace with actual value
     }
 
     /// This constructor can be used to instantiate a fake object.
@@ -1156,7 +1156,7 @@ open class Descriptor:
     public init(noPointer: NoPointer) {
         self.pointer = nil
         self.descriptorString = "" // Placeholder for no-pointer init
-        self.network = .bitcoin // Default value for fake init
+        self.net = .bitcoin // Default value for fake init
     }
 
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
@@ -1172,26 +1172,26 @@ open class Descriptor:
         }
         self.init(unsafeFromRawPointer: pointer)
         self.descriptorString = descriptor
-        self.network = network
+        self.net = network
     }
     
     // Conformance to Encodable
     enum CodingKeys: String, CodingKey {
         case descriptorString
-        case network
+        case net
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(descriptorString, forKey: .descriptorString)
-        try container.encode(network, forKey: .network)
+        try container.encode(net, forKey: .net)
     }
     
     // Implementing Decodable
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         descriptorString = try container.decode(String.self, forKey: .descriptorString)
-        network = try container.decode(Network.self, forKey: .network)
+        net = try container.decode(Network.self, forKey: .net)
         
         // Initialize pointer with a valid value based on the decoded properties if needed
         self.pointer = nil // Adjust based on your initialization logic
