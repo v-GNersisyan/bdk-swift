@@ -3455,12 +3455,59 @@ public protocol WalletProtocol : AnyObject {
 }
 
 open class Wallet:
-    WalletProtocol {
+    WalletProtocol, Codable, Equatable, Hashable {
     fileprivate let pointer: UnsafeMutableRawPointer!
+
+    let descriptor: Descriptor
+    let changeDescriptor: Descriptor
+    let network: Network
+    let connection: Connection
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
     public struct NoPointer {
         public init() {}
+    }
+
+    // Codable conformance
+    enum CodingKeys: String, CodingKey {
+        case descriptor
+        case changeDescriptor
+        case network
+        case connection
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(descriptor, forKey: .descriptor)
+        try container.encode(changeDescriptor, forKey: .changeDescriptor)
+        try container.encode(network, forKey: .network)
+        try container.encode(connection, forKey: .connection)
+    }
+    
+    public required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.descriptor = try container.decode(Descriptor.self, forKey: .descriptor)
+        self.changeDescriptor = try container.decode(Descriptor.self, forKey: .changeDescriptor)
+        self.network = try container.decode(Network.self, forKey: .network)
+        self.connection = try container.decode(Connection.self, forKey: .connection)
+        self.pointer = nil // Cannot decode pointer, this must be handled elsewhere
+    }
+
+        // Equatable conformance
+    public static func == (lhs: Wallet, rhs: Wallet) -> Bool {
+        return lhs.descriptor == rhs.descriptor &&
+               lhs.changeDescriptor == rhs.changeDescriptor &&
+               lhs.network == rhs.network &&
+               lhs.connection == rhs.connection
+        // Ignore `pointer` as it cannot be compared directly
+    }
+
+    // Hashable conformance
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(descriptor)
+        hasher.combine(changeDescriptor)
+        hasher.combine(network)
+        hasher.combine(connection)
     }
 
     // TODO: We'd like this to be `private` but for Swifty reasons,
