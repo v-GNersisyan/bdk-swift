@@ -3591,31 +3591,31 @@ open class Wallet:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
-        self.pointer = pointer
-        self.descriptor = try! Descriptor(descriptor: "", network: .bitcoin)
-        self.net = .bitcoin
-        self.connection = .init(noPointer: .init())
-        self.changeDescriptor = try! Descriptor(descriptor: "", network: .bitcoin)
-    }
+//    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+//        self.pointer = pointer
+//        self.descriptor = try! Descriptor(descriptor: "", network: .bitcoin)
+//        self.net = .bitcoin
+//        self.connection = .init(noPointer: .init())
+//        self.changeDescriptor = try! Descriptor(descriptor: "", network: .bitcoin)
+//    }
     
     /// This constructor can be used to instantiate a fake object.
     /// - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
     ///
     /// - Warning:
     ///     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
-        self.descriptor = try! Descriptor(descriptor: "", network: .bitcoin)
-        self.net = .bitcoin
-        self.connection = .init(noPointer: .init())
-        self.changeDescriptor = try! Descriptor(descriptor: "", network: .bitcoin)
-    }
+//    public init(noPointer: NoPointer) {
+//        self.pointer = nil
+//        self.descriptor = try! Descriptor(descriptor: "", network: .bitcoin)
+//        self.net = .bitcoin
+//        self.connection = .init(noPointer: .init())
+//        self.changeDescriptor = try! Descriptor(descriptor: "", network: .bitcoin)
+//    }
     
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_bdkffi_fn_clone_wallet(self.pointer, $0) }
     }
-    public convenience init(descriptor: Descriptor, changeDescriptor: Descriptor, network: Network, connection: Connection)throws  {
+    required public init(descriptor: Descriptor, changeDescriptor: Descriptor, network: Network, connection: Connection)throws  {
         let pointer =
         try rustCallWithError(FfiConverterTypeCreateWithPersistError.lift) {
             uniffi_bdkffi_fn_constructor_wallet_new(
@@ -3625,7 +3625,7 @@ open class Wallet:
                 FfiConverterTypeConnection.lower(connection),$0
             )
         }
-        self.init(unsafeFromRawPointer: pointer)
+//        self.init(unsafeFromRawPointer: pointer)
         self.descriptor = descriptor
         self.changeDescriptor = changeDescriptor
         self.net = network
